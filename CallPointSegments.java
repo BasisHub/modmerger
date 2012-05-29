@@ -8,15 +8,18 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-public class CallPointSegments extends HashMap<String,String>{
+public class CallPointSegments extends HashMap<String,CallPointSegment>{
     
     public ArrayList<String> codeBlockList =new ArrayList<String>(); 
-    String fileName;
-    boolean changed=false;
-    enum State{SEEKING,GATHERING}
-    private CallPointSegments(){}
+    protected String fileName;
+    protected boolean changed=false;
+    protected enum State{SEEKING,GATHERING}
+
+    protected CallPointSegments(){}
     public CallPointSegments(String cdfFileName) throws FileNotFoundException,IOException{
     
+        CallPointSegment callPointSegment;
+        
         //Open and Populate ourselves from a CDF file
         fileName=cdfFileName;
         File fl=new File(cdfFileName);
@@ -43,7 +46,8 @@ public class CallPointSegments extends HashMap<String,String>{
                 
                 if (state==State.GATHERING) {
                     codeBlockList.add(codeBlockName);
-                    put(codeBlockName, codeBlock);
+                    callPointSegment=newCallPointSegment(codeBlockName,codeBlock);
+                    put(codeBlockName, callPointSegment);
                     codeBlock="";
                     codeBlockName="";
                 }
@@ -69,28 +73,29 @@ public class CallPointSegments extends HashMap<String,String>{
         }
         if (state==State.GATHERING) {
             codeBlockList.add(codeBlockName);
-            put(codeBlockName, codeBlock);
+            callPointSegment=newCallPointSegment(codeBlockName,codeBlock);
+            put(codeBlockName, callPointSegment);
         }
     
     }
     
-    public void insert(String codeBlockName, String codeBlock){
+    public void insert(String codeBlockName, CallPointSegment callPointSegment){
         String correspondingCodeBlockName="";
 
         // This is where you apply the git archive rules
         if (containsKey(codeBlockName)) {
-            System.err.println(fileName+" already contains a callpoint segment named \""+codeBlockName+"\"");
-            return;
+            correspondingCodeBlockName=codeBlockName;
+        }
+        else {
+            correspondingCodeBlockName=codeBlockName.substring(0,codeBlockName.length()-2);
         }
 
-        correspondingCodeBlockName=codeBlockName.substring(0,codeBlockName.length()-2);
-
         // Handle before callpoints containing a skip and custom callpoints
-        if ((codeBlockName.endsWith(".B") && containsKey(correspondingCodeBlockName) && codeBlock.contains("SKIP\"")) ||
+        if ((codeBlockName.endsWith(".B") && containsKey(correspondingCodeBlockName) && callPointSegment.getCodeBlock().contains("SKIP\"")) ||
            (codeBlockName.contains("<CUSTOM>"))) {
             changed=true;
             remove(correspondingCodeBlockName);
-            put(codeBlockName, codeBlock);
+            put(codeBlockName,callPointSegment);
             System.out.println("\t"+codeBlockName+": processed");
             codeBlockList.set(codeBlockList.indexOf(correspondingCodeBlockName),codeBlockName);
             return;
@@ -105,12 +110,16 @@ public class CallPointSegments extends HashMap<String,String>{
         }
 
         BufferedWriter fos=new BufferedWriter(new FileWriter(newFile));
-        for (String codeBlock:codeBlockList){
-            String codeBlockContent=get(codeBlock);
+        for (String codeBlockName:codeBlockList){
+            String codeBlockContent=get(codeBlockName).getCodeBlock();
             fos.write(codeBlockContent);
         }
 
         fos.close();
+    }
+    
+    protected CallPointSegment newCallPointSegment(String codeBlockName, String codeBlock){
+        return new CallPointSegment(codeBlockName,codeBlock);
     }
 
     public boolean getChanged(){

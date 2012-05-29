@@ -8,7 +8,7 @@
 import java.io.*;
 public class CopyBackCallpoints {
     
-    public static void copyBack(String modDirectory,String archiveDirectory) throws IOException{
+    public void copyBack(String modDirectory,String archiveDirectory) throws IOException{
         File modDirFile=new File(modDirectory);
         File archiveDirFile=new File(archiveDirectory);
         
@@ -16,22 +16,28 @@ public class CopyBackCallpoints {
             File archiveFl=new File(archiveDirFile.getAbsoluteFile()+File.separator+modFl.getName());
             
             if (archiveFl.exists()){
-                CallPointSegments modCPS=new CallPointSegments(modFl.getAbsolutePath());
-                CallPointSegments archiveCPS=new CallPointSegments(archiveFl.getAbsolutePath());
-                
-                for (String callpointName:archiveCPS.keySet()){
-                    if (callpointName.contains(".B") || callpointName.contains("CUSTOM")){
-                        if (modCPS.keySet().contains(callpointName)){
-                            modCPS.put(callpointName,archiveCPS.get(callpointName));    
-                        }
-                    }
-                }
-                modCPS.save();
+                copyBackCallpoints(modFl,archiveFl);
             }
         }
     }
+
+    // Overrideable method for subclasses that handle subroutines in custom callpoints, etc.
+    public void copyBackCallpoints(File modFl, File archiveFl) throws IOException {
+        CallPointSegments modCPS=new CallPointSegments(modFl.getAbsolutePath());
+        CallPointSegments archiveCPS=new CallPointSegments(archiveFl.getAbsolutePath());
+
+        for (String callpointName:archiveCPS.keySet()){
+            if (callpointName.contains(".B") || callpointName.contains("CUSTOM")){
+                if (modCPS.keySet().contains(callpointName)){
+                    modCPS.put(callpointName,archiveCPS.get(callpointName));
+                }
+            }
+        }
+        modCPS.save();
+    }
     
     public static void main(String args[]) throws IOException {
+        CopyBackCallpoints cbc=new CopyBackCallpoints();
         if (args.length!=2){
             System.err.println("<mods cdf directory> <archive cdf directory>");
         }
@@ -39,7 +45,7 @@ public class CopyBackCallpoints {
         String modDirectory=args[0];
         String archiveDirectory=args[1];
 
-        copyBack(modDirectory,archiveDirectory);
+        cbc.copyBack(modDirectory, archiveDirectory);
     }
 
 }
